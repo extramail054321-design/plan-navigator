@@ -1,0 +1,130 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f172a"><link rel="manifest" href="/manifest.webmanifest"><title>Plan Navigator</title>
+<style>
+:root{--bg:#f8fafc;--fg:#0f172a;--pn:#fffffff0;--ac:#2563eb}
+@media(prefers-color-scheme:dark){:root{--bg:#0f172a;--fg:#f1f5f9;--pn:#1e293bf0}}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:15px system-ui,sans-serif;overflow:hidden;touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%}
+.bar{position:fixed;left:8px;right:8px;background:var(--pn);border-radius:14px;padding:8px 12px;box-shadow:0 2px 10px #0004}
+#top{top:calc(8px + env(safe-area-inset-top))}#bot{bottom:calc(8px + env(safe-area-inset-bottom));display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+button{min-height:44px;min-width:44px;border:0;border-radius:10px;padding:0 12px;background:var(--ac);color:#fff;font:inherit}
+button.g{background:#64748b}#mark{background:#16a34a;font-weight:700;flex:1 1 100px}
+#dbg{position:fixed;top:90px;left:8px;font:11px monospace;background:#000a;color:#0f0;padding:6px;border-radius:6px;display:none;white-space:pre}
+#msg{font-size:13px;opacity:.8}
+</style></head><body>
+<canvas id="c"></canvas>
+<div class="bar" id="top"><b id="room">Upload a plan to begin</b><div id="msg">1 Upload › 2 Calibrate › 3 Detect › 4 Pin › 5 Walk</div></div>
+<pre id="dbg"></pre>
+<div class="bar" id="bot">
+<button id="bUp">Upload</button><button id="bCal" class="g">Calibrate</button><button id="bDet">Detect</button>
+<button id="bPin" class="g">Pin me</button><button id="bSen">Enable sensors</button><button id="mark">Mark</button>
+<button id="bDraw" class="g">Draw room</button><button id="bFol" class="g">Follow</button><button id="bTr" class="g">Trail</button>
+<button id="bClr" class="g">Clear trail</button><button id="bExp" class="g">Export</button><button id="bStr" class="g">Stride</button>
+<button id="bNor" class="g">North</button><button id="bDbg" class="g">Debug</button>
+</div>
+<input type="file" id="file" accept="image/*" hidden>
+<script>
+"use strict";
+const $=s=>document.querySelector(s),cv=$("#c"),cx=cv.getContext("2d");
+let S={ppm:0,rooms:[],marks:[],trail:[],pos:null,stride:.7,north:0,trailOn:true,follow:true,steps:0,since:0},
+img=null,off=null,V={x:0,y:0,k:1},mode="",tmp=[],cur=null,cand=null,candN=0,head=0,dbgOn=false,busy=false;
+const msg=t=>$("#msg").textContent=t;
+/* ---- storage (IndexedDB) ---- */
+const db=new Promise(r=>{try{const q=indexedDB.open("plannav",1);q.onupgradeneeded=()=>q.result.createObjectStore("k");q.onsuccess=()=>r(q.result);q.onerror=()=>r(null)}catch{r(null)}});
+const idb=async(m,k,v)=>{try{const d=await db;if(!d)return;return await new Promise(r=>{const o=d.transaction("k",m==="get"?"readonly":"readwrite").objectStore("k"),q=m==="get"?o.get(k):o.put(v,k);q.onsuccess=()=>r(q.result);q.onerror=()=>r()})}catch{}};
+let tm;const save=()=>{clearTimeout(tm);tm=setTimeout(()=>idb("set","state",S),400)};
+const saveImg=b=>idb("set","img",b);
+/* ---- image ---- */
+function load(blob){const u=URL.createObjectURL(blob),i=new Image();i.onload=()=>{img=i;off=document.createElement("canvas");off.width=i.width;off.height=i.height;off.getContext("2d").drawImage(i,0,0);fit();msg("Now calibrate the scale");draw()};i.src=u}
+function fit(){const k=Math.min(innerWidth/img.width,innerHeight/img.height)*.95;V={k,x:(innerWidth-img.width*k)/2,y:(innerHeight-img.height*k)/2}}
+$("#bUp").onclick=()=>$("#file").click();
+$("#file").onchange=e=>{const f=e.target.files[0];if(!f)return;S={...S,ppm:0,rooms:[],marks:[],trail:[],pos:null};saveImg(f);load(f);save()};
+/* ---- canvas ---- */
+function size(){const d=devicePixelRatio||1;cv.width=innerWidth*d;cv.height=innerHeight*d;draw()}addEventListener("resize",size);
+const w2s=p=>[p[0]*V.k+V.x,p[1]*V.k+V.y],s2w=p=>[(p[0]-V.x)/V.k,(p[1]-V.y)/V.k];
+let raf=0;const draw=()=>{if(!raf)raf=requestAnimationFrame(render)};
+function poly(pts,fill,stroke,lw){cx.beginPath();pts.forEach((p,i)=>{const s=w2s(p);i?cx.lineTo(...s):cx.moveTo(...s)});cx.closePath();if(fill){cx.fillStyle=fill;cx.fill()}cx.strokeStyle=stroke;cx.lineWidth=lw;cx.stroke()}
+function render(){raf=0;const d=devicePixelRatio||1;cx.setTransform(d,0,0,d,0,0);cx.clearRect(0,0,innerWidth,innerHeight);if(!img)return;
+cx.drawImage(img,V.x,V.y,img.width*V.k,img.height*V.k);
+S.rooms.forEach((r,i)=>{const on=i===cur;poly(r.p,on?"#2563eb55":"#10b98122",on?"#1d4ed8":"#10b981",on?4:1.5);const c=cen(r.p),s=w2s(c);cx.fillStyle="#000";cx.font="12px system-ui";cx.textAlign="center";cx.fillText(r.n,s[0],s[1])});
+if(mode==="draw"&&tmp.length)poly(tmp,"#f59e0b33","#f59e0b",2);
+if(S.trailOn&&S.trail.length>1){const n=S.trail.length;for(let i=1;i<n;i++){cx.strokeStyle=`rgba(37,99,235,${.05+.25*i/n})`;cx.lineWidth=1.5;cx.beginPath();cx.moveTo(...w2s(S.trail[i-1]));cx.lineTo(...w2s(S.trail[i]));cx.stroke()}}
+S.marks.forEach(m=>{const s=w2s(m.p);cx.fillStyle="#dc2626";cx.beginPath();cx.arc(s[0],s[1],6,0,7);cx.fill()});
+if(mode==="cal")tmp.forEach(p=>{const s=w2s(p);cx.fillStyle="#f59e0b";cx.beginPath();cx.arc(s[0],s[1],6,0,7);cx.fill()});
+if(S.pos){const s=w2s(S.pos),h=(head+S.north)*Math.PI/180,rr=Math.max(10,Math.min(80,S.since*.5*(S.ppm||1)*V.k*.1+10));
+cx.fillStyle="#2563eb22";cx.beginPath();cx.arc(s[0],s[1],rr,0,7);cx.fill();
+cx.fillStyle="#2563eb55";cx.beginPath();cx.moveTo(...s);cx.arc(s[0],s[1],34,h-Math.PI/2-.5,h-Math.PI/2+.5);cx.fill();
+cx.fillStyle="#2563eb";cx.strokeStyle="#fff";cx.lineWidth=3;cx.beginPath();cx.arc(s[0],s[1],8,0,7);cx.fill();cx.stroke()}
+if(S.ppm){const m=[1,2,5,10,20,50].find(x=>x*S.ppm*V.k>60)||50,l=m*S.ppm*V.k;cx.fillStyle="#000";cx.fillRect(12,innerHeight-130,l,4);cx.font="12px system-ui";cx.textAlign="left";cx.fillText(m+" m",12,innerHeight-136)}}
+/* ---- geometry ---- */
+const cen=p=>p.reduce((a,q)=>[a[0]+q[0]/p.length,a[1]+q[1]/p.length],[0,0]);
+const inside=(pt,p)=>{let c=false;for(let i=0,j=p.length-1;i<p.length;j=i++)if((p[i][1]>pt[1])!==(p[j][1]>pt[1])&&pt[0]<(p[j][0]-p[i][0])*(pt[1]-p[i][1])/(p[j][1]-p[i][1])+p[i][0])c=!c;return c};
+function updRoom(){if(!S.pos)return;const f=S.rooms.findIndex(r=>inside(S.pos,r.p));
+if(f===cur){cand=null;candN=0}else{if(cand===f)candN++;else{cand=f;candN=1}if(candN>=3||cur===null){cur=f<0?null:f;cand=null;candN=0}}
+$("#room").textContent=cur!==null&&S.rooms[cur]?"You are in: "+S.rooms[cur].n:"You are in: —"}
+/* ---- gestures ---- */
+const P=new Map();let g=null,down=null,lastTap=0;
+cv.addEventListener("pointerdown",e=>{cv.setPointerCapture(e.pointerId);P.set(e.pointerId,[e.clientX,e.clientY]);down={t:Date.now(),x:e.clientX,y:e.clientY,mv:0};g=pg()});
+function pg(){const a=[...P.values()];if(a.length<2)return{c:a[0],d:0,V:{...V}};const d=Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]);return{c:[(a[0][0]+a[1][0])/2,(a[0][1]+a[1][1])/2],d,V:{...V}}}
+cv.addEventListener("pointermove",e=>{if(!P.has(e.pointerId))return;P.set(e.pointerId,[e.clientX,e.clientY]);if(down)down.mv=Math.max(down.mv,Math.hypot(e.clientX-down.x,e.clientY-down.y));
+const n=pg();S.follow=false;if(P.size>=2&&g.d){const k=Math.max(.05,Math.min(12,g.V.k*n.d/g.d));V.k=k;V.x=n.c[0]-(g.c[0]-g.V.x)*k/g.V.k;V.y=n.c[1]-(g.c[1]-g.V.y)*k/g.V.k}else if(g.c){V.x=g.V.x+n.c[0]-g.c[0];V.y=g.V.y+n.c[1]-g.c[1]}draw()});
+const up=e=>{if(!P.has(e.pointerId))return;const was=P.size===1&&down&&down.mv<8&&Date.now()-down.t<300;P.delete(e.pointerId);g=pg();if(was)tap([e.clientX,e.clientY])};
+cv.addEventListener("pointerup",up);cv.addEventListener("pointercancel",e=>{P.delete(e.pointerId)});
+cv.addEventListener("wheel",e=>{e.preventDefault();zoomAt([e.clientX,e.clientY],Math.exp(-e.deltaY*.0015))},{passive:false});
+function zoomAt(c,f){const k=Math.max(.05,Math.min(12,V.k*f));V.x=c[0]-(c[0]-V.x)*k/V.k;V.y=c[1]-(c[1]-V.y)*k/V.k;V.k=k;draw()}
+function tap(sp){if(!img)return;const now=Date.now();if(now-lastTap<300&&!mode){zoomAt(sp,2);lastTap=0;return}lastTap=now;const w=s2w(sp);
+if(mode==="cal"){tmp.push(w);draw();if(tmp.length===2){const px=Math.hypot(tmp[0][0]-tmp[1][0],tmp[0][1]-tmp[1][1]),ans=prompt("Real distance? (meters, or add 'ft' for feet, e.g. 12 ft)")||"",v=parseFloat(ans);
+if(v>0){S.ppm=px/(/ft/i.test(ans)?v*.3048:v);}tmp=[];mode="";save();msg("Scale set");draw()}return}
+if(mode==="pin"){S.pos=w;S.since=0;S.trail.push(w);mode="";updRoom();save();msg("Pinned. Enable sensors and walk");draw();return}
+if(mode==="draw"){tmp.push(w);draw();return}
+const i=S.rooms.findIndex(r=>inside(w,r.p));if(i>=0){const a=prompt(`Room "${S.rooms[i].n}" — new name (empty = keep, "DELETE" = remove):`,S.rooms[i].n);if(a==="DELETE")S.rooms.splice(i,1);else if(a)S.rooms[i].n=a;cur=null;updRoom();save();draw()}}
+$("#bCal").onclick=()=>{if(!img)return;mode="cal";tmp=[];msg("Tap two points of known distance")};
+$("#bPin").onclick=()=>{if(!img)return;mode="pin";msg("Tap where you are")};
+$("#bDraw").onclick=()=>{if(!img)return;if(mode==="draw"){if(tmp.length>2)S.rooms.push({n:prompt("Room name","Room "+(S.rooms.length+1))||"Room",p:tmp});tmp=[];mode="";$("#bDraw").textContent="Draw room";save()}else{mode="draw";tmp=[];$("#bDraw").textContent="Finish room";msg("Tap corners, then Finish")}draw()};
+$("#bFol").onclick=()=>{S.follow=true;if(S.pos)centerOn();draw()};
+$("#bTr").onclick=()=>{S.trailOn=!S.trailOn;save();draw()};
+$("#bClr").onclick=()=>{S.trail=S.pos?[S.pos]:[];save();draw()};
+$("#bStr").onclick=()=>{const v=parseFloat(prompt("Stride length (m)",S.stride));if(v>.2&&v<1.5){S.stride=v;save()}};
+$("#bNor").onclick=()=>{const v=parseFloat(prompt("North offset in degrees (compass → plan up)",S.north));if(!isNaN(v)){S.north=v;save();draw()}};
+$("#bDbg").onclick=()=>{dbgOn=!dbgOn;$("#dbg").style.display=dbgOn?"block":"none"};
+function centerOn(){const s=w2s(S.pos);V.x+=innerWidth/2-s[0];V.y+=innerHeight/2-s[1]}
+/* ---- marks ---- */
+$("#mark").onclick=()=>{if(!S.pos)return msg("Pin your position first");const note=prompt("Note (optional)")||"";S.marks.push({p:[...S.pos],room:cur!==null&&S.rooms[cur]?S.rooms[cur].n:"",t:new Date().toISOString(),note});save();draw();msg("Marked ("+S.marks.length+")")};
+$("#bExp").onclick=()=>{const dl=(n,t,m)=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([t],{type:m}));a.download=n;a.click()};
+dl("marks.json",JSON.stringify(S.marks,null,1),"application/json");
+dl("marks.csv","time,room,x_px,y_px,note\n"+S.marks.map(m=>[m.t,m.room,m.p[0].toFixed(1),m.p[1].toFixed(1),'"'+m.note.replace(/"/g,'""')+'"'].join(",")).join("\n"),"text/csv")};
+/* ---- room detection ---- */
+$("#bDet").onclick=async()=>{if(!img||busy)return;busy=true;msg("Detecting rooms with AI…");
+const k=Math.min(1,1600/Math.max(img.width,img.height)),c=document.createElement("canvas");c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+try{const r=await fetch("/.netlify/functions/detect-rooms",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({image:c.toDataURL("image/jpeg",.8).split(",")[1],w:c.width,h:c.height})});
+const j=await r.json();if(!r.ok)throw Error(j.error||r.status);
+const t=j.content.map(x=>x.text||"").join("").replace(/```json|```/g,"").trim(),a=JSON.parse(t.slice(t.indexOf("{"),t.lastIndexOf("}")+1));
+S.rooms=a.rooms.filter(x=>Array.isArray(x.polygon)&&x.polygon.length>2).map((x,i)=>({n:String(x.label||"Room "+(i+1)),p:x.polygon.map(q=>[q[0]/k,q[1]/k])}));
+if(!S.rooms.length)throw Error("no rooms");msg(S.rooms.length+" rooms found. Tap a room to rename/delete")}
+catch(e){msg("AI failed ("+e.message+"). Using local detection… tap Detect to retry AI");S.rooms=localDetect()}
+busy=false;cur=null;updRoom();save();draw()};
+function localDetect(){const W=400,k=Math.min(1,W/Math.max(img.width,img.height)),w=Math.round(img.width*k),h=Math.round(img.height*k),c=document.createElement("canvas");c.width=w;c.height=h;const x=c.getContext("2d");x.drawImage(img,0,0,w,h);
+const d=x.getImageData(0,0,w,h).data,L=new Uint8Array(w*h);let n=0;const open=new Uint8Array(w*h);for(let i=0;i<w*h;i++)open[i]=(d[i*4]+d[i*4+1]+d[i*4+2])/3>170?1:0;
+const out=[];for(let s=0;s<w*h;s++){if(!open[s]||L[s])continue;n++;const st=[s],px=[];let edge=false;L[s]=n;while(st.length){const q=st.pop();px.push(q);const qx=q%w,qy=(q/w)|0;if(!qx||!qy||qx===w-1||qy===h-1)edge=true;for(const nb of[q-1,q+1,q-w,q+w]){if(nb>=0&&nb<w*h&&open[nb]&&!L[nb]&&!((nb===q-1&&!qx)||(nb===q+1&&qx===w-1))){L[nb]=n;st.push(nb)}}}
+if(edge||px.length<w*h*.003)continue;const pts=px.map(q=>[q%w,(q/w)|0]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]),cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]),lo=[],up=[];
+for(const p of pts){while(lo.length>1&&cr(lo[lo.length-2],lo[lo.length-1],p)<=0)lo.pop();lo.push(p)}for(const p of pts.reverse()){while(up.length>1&&cr(up[up.length-2],up[up.length-1],p)<=0)up.pop();up.push(p)}
+const hull=lo.slice(0,-1).concat(up.slice(0,-1)),step=Math.max(1,Math.floor(hull.length/12));out.push({n:"Room "+out.length+1,p:hull.filter((_,i)=>i%step===0).map(p=>[p[0]/k,p[1]/k])})}
+return out.map((r,i)=>({...r,n:"Room "+(i+1)}))}
+/* ---- sensors & dead reckoning ---- */
+let hasSens=false,lp=9.8,last=0,mag=0,prev=0,pprev=0,wl=null,still=0;
+$("#bSen").onclick=async()=>{try{for(const C of[DeviceMotionEvent,DeviceOrientationEvent])if(C&&C.requestPermission&&await C.requestPermission()!=="granted")throw 0;
+if(!("ondevicemotion" in window))throw 0;addEventListener("devicemotion",onMotion);addEventListener("deviceorientationabsolute",onOri);addEventListener("deviceorientation",onOri);hasSens=true;
+try{wl=await navigator.wakeLock.request("screen")}catch{}msg("Sensors on. Walk!")}catch{msg("Sensors unavailable or denied (needs HTTPS + a phone)")}};
+function onOri(e){let h=e.webkitCompassHeading;if(h==null){if(e.type==="deviceorientation"&&e.absolute===false&&"ondeviceorientationabsolute" in window)return;if(e.alpha==null)return;h=360-e.alpha}
+const dl=((h-head+540)%360)-180;head=(head+.15*dl+360)%360;if(dbgOn)dbg();draw()}
+function onMotion(e){const a=e.accelerationIncludingGravity;if(!a)return;const m=Math.hypot(a.x,a.y,a.z);lp+=.2*(m-lp);const dev=lp-9.8,t=e.timeStamp||Date.now();
+still=Math.abs(dev)<.15?still+1:0;
+if(prev>pprev&&prev>=dev&&prev>.9&&t-last>300&&still<50){last=t;step()}pprev=prev;prev=dev}
+function step(){S.steps++;if(!S.pos||!S.ppm)return;const h=(head+S.north)*Math.PI/180,d=S.stride*S.ppm,n=[S.pos[0]+Math.sin(h)*d,S.pos[1]-Math.cos(h)*d];
+if(n[0]<0||n[1]<0||n[0]>img.width||n[1]>img.height||wall(S.pos,n))return;S.pos=n;S.since+=S.stride;S.trail.push(n);if(S.trail.length>3000)S.trail.shift();updRoom();if(S.follow)centerOn();save();draw();if(S.since>25)msg("Low confidence — re-pin your position")}
+function wall(a,b){const g=off.getContext("2d");for(let t=.25;t<=1;t+=.25){const x=a[0]+(b[0]-a[0])*t,y=a[1]+(b[1]-a[1])*t,p=g.getImageData(x|0,y|0,1,1).data;if((p[0]+p[1]+p[2])/3<60)return true}return false}
+function dbg(){$("#dbg").textContent=`steps ${S.steps}\nheading ${head.toFixed(0)}°\nstride ${S.stride}\npos ${S.pos?S.pos.map(v=>v.toFixed(0)):"-"}\nsince pin ${S.since.toFixed(1)} m`}
+/* ---- boot ---- */
+(async()=>{size();const s=await idb("get","state");if(s)S={...S,...s};const b=await idb("get","img");if(b)load(b);updRoom();if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>{})})();
+</script></body></html>
