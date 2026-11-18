@@ -1,95 +1,164 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0f172a"><link rel="manifest" href="/manifest.webmanifest"><title>Plan Navigator</title>
+<meta name="theme-color" content="#0b1220"><link rel="manifest" href="/manifest.webmanifest"><title>Plan Navigator</title>
 <style>
-:root{--bg:#f8fafc;--fg:#0f172a;--pn:#fffffff0;--ac:#2563eb}
-@media(prefers-color-scheme:dark){:root{--bg:#0f172a;--fg:#f1f5f9;--pn:#1e293bf0}}
-*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:15px system-ui,sans-serif;overflow:hidden;touch-action:none}
+:root{--bg:#eef2f7;--tx:#0f172a;--mu:#64748b;--gl:rgba(255,255,255,.8);--bd:rgba(15,23,42,.08);--chip:rgba(15,23,42,.06);--ac:#2563eb}
+@media(prefers-color-scheme:dark){:root{--bg:#0b1220;--tx:#f1f5f9;--mu:#94a3b8;--gl:rgba(20,29,48,.82);--bd:rgba(255,255,255,.09);--chip:rgba(255,255,255,.08)}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:15px/1.3 system-ui,-apple-system,sans-serif;overflow:hidden;touch-action:none}
 canvas{position:fixed;inset:0;width:100%;height:100%}
-.bar{position:fixed;left:8px;background:var(--pn);border-radius:14px;padding:8px 12px;box-shadow:0 2px 10px #0004}
-#top{right:8px;top:calc(8px + env(safe-area-inset-top))}
-#bot{right:150px;bottom:calc(8px + env(safe-area-inset-bottom));display:flex;flex-wrap:wrap;gap:6px}
-button{min-height:44px;min-width:44px;border:0;border-radius:10px;padding:0 12px;background:var(--ac);color:#fff;font:inherit}
-button.g{background:#64748b}#mark{background:#16a34a;font-weight:700}
-#msg{font-size:13px;opacity:.85}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.glass{background:var(--gl);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--bd);box-shadow:0 8px 30px rgba(0,0,0,.18)}
+#top{position:fixed;left:10px;right:10px;top:calc(10px + env(safe-area-inset-top));border-radius:18px;padding:10px 14px 12px}
+.hd{display:flex;align-items:center;gap:8px}.hd b{font-size:16px}.hd em{font-style:normal;font-size:11px;color:var(--mu);margin-left:auto}
+.logo{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#2563eb,#7c3aed);display:grid;place-items:center;color:#fff}.logo svg{width:16px;height:16px}
+#msg{margin-top:4px;font-size:13px;color:var(--mu)}
+#dots{display:flex;gap:5px;margin-top:9px}#dots i{flex:1;height:4px;border-radius:2px;background:var(--chip);transition:.3s}#dots i.d{background:var(--ac)}
+#rail{position:fixed;right:10px;top:calc(122px + env(safe-area-inset-top));display:flex;flex-direction:column;gap:8px}
+.ib{width:52px;height:56px;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:10px;color:var(--mu);background:var(--gl);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--bd);box-shadow:0 4px 14px rgba(0,0,0,.15)}
+.ib.on{color:var(--ac)}.ib svg{width:20px;height:20px}
+#mark{position:fixed;left:12px;bottom:calc(12px + env(safe-area-inset-bottom));width:70px;height:70px;border-radius:50%;background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;font-weight:700;box-shadow:0 8px 22px rgba(22,163,74,.5)}
+#mark svg{width:26px;height:26px;stroke-width:2.6}
+#dock{position:fixed;left:94px;right:150px;bottom:calc(12px + env(safe-area-inset-bottom));display:flex;gap:8px;overflow-x:auto;padding:4px 2px;scrollbar-width:none;touch-action:pan-x}
+.ch{flex:0 0 auto;min-width:68px;height:62px;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;font-weight:600;background:var(--gl);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--bd);box-shadow:0 4px 14px rgba(0,0,0,.15)}
+.ch.now{background:var(--ac);color:#fff;border-color:transparent}
+#legend{position:fixed;left:10px;top:calc(122px + env(safe-area-inset-top));border-radius:16px;padding:10px 12px;font-size:12px}
+#legend div{display:flex;align-items:center;gap:7px;margin-top:5px}#legend i{width:10px;height:10px;border-radius:50%}
+#scrim{position:fixed;inset:0;background:rgba(0,0,0,.4)}
+.sheet{position:fixed;left:0;right:0;bottom:0;border-radius:24px 24px 0 0;padding:10px 16px calc(16px + env(safe-area-inset-bottom));max-height:88vh;overflow:auto;touch-action:pan-y;max-width:560px;margin:auto}
+.grab{width:42px;height:5px;border-radius:3px;background:var(--chip);margin:0 auto 10px}
+.sheet h3{margin:0 0 6px;font-size:18px}.sheet label{display:block;margin:12px 0 6px;font-size:12px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.05em}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{height:38px;padding:0 13px;border-radius:19px;background:var(--chip);border:1.5px solid transparent;display:inline-flex;align-items:center;gap:7px;font-size:14px}
+.chip i{width:11px;height:11px;border-radius:50%;background:var(--c)}.chip.on{border-color:var(--c);background:color-mix(in srgb,var(--c) 20%,transparent);font-weight:700}
+.seg{display:flex;background:var(--chip);border-radius:12px;padding:3px}.seg button{flex:1;height:36px;border-radius:10px;font-weight:600;color:var(--mu)}.seg button.on{background:var(--ac);color:#fff}
+#note{width:100%;height:44px;margin-top:12px;border-radius:12px;border:1px solid var(--bd);background:var(--chip);color:var(--tx);padding:0 12px;font:inherit;user-select:text}
+.row{display:flex;gap:8px;margin-top:14px}.row button{flex:1;height:48px;border-radius:14px;font-weight:700;background:var(--chip)}
+#shSave{background:var(--ac)!important;color:#fff;flex:2!important}#shDel{color:#ef4444}
+[hidden]{display:none!important}
 </style></head><body>
 <canvas id="c"></canvas>
-<div class="bar" id="top"><b>Plan Navigator v3</b><div id="msg">Upload › Start sensors › Calibrate › Pin › Walk</div></div>
-<div class="bar" id="bot">
-<button id="bUp">Upload</button><button id="bSen">Start</button><button id="bCal" class="g">Calibrate</button>
-<button id="bPin" class="g">Pin me</button><button id="mark">Mark</button><button id="bFol" class="g">Follow</button>
-<button id="bTr" class="g">Trail</button><button id="bWal" class="g">Walls</button><button id="bClr" class="g">Clear</button><button id="bExp" class="g">Export</button>
-</div>
+<div id="top" class="glass"><div class="hd"><span class="logo" data-i="pin"></span><b>Plan Navigator</b><em>v4</em></div>
+<div id="msg">Upload a floor plan to begin</div><div id="dots"><i></i><i></i><i></i><i></i><i></i></div></div>
+<div id="rail">
+<button class="ib on" id="bFol" data-i="follow">Follow</button><button class="ib on" id="bTr" data-i="trail">Trail</button>
+<button class="ib on" id="bWal" data-i="walls">Walls</button><button class="ib" id="bClr" data-i="clear">Clear</button>
+<button class="ib" id="bLeg" data-i="legend">Legend</button><button class="ib" id="bExp" data-i="export">Export</button></div>
+<div id="legend" class="glass" hidden></div>
+<button id="mark" data-i="plus">Mark</button>
+<div id="dock"><button class="ch" id="bUp" data-i="up">Upload</button><button class="ch" id="bSen" data-i="power">Start</button>
+<button class="ch" id="bCal" data-i="flag">Calibrate</button><button class="ch" id="bPin" data-i="pin">Pin me</button></div>
+<div id="scrim" hidden></div>
+<div id="sh" class="glass sheet" hidden><div class="grab"></div><h3 id="shT">New pin</h3>
+<label>Element</label><div id="chEl" class="chips"></div><label>Type of marking</label><div id="chTy" class="chips"></div>
+<label>Colour pins by</label><div class="seg"><button data-cb="element">Element</button><button data-cb="type">Type</button></div>
+<input id="note" placeholder="Note (optional)"><div class="row"><button id="shDel">Delete</button><button id="shCancel">Cancel</button><button id="shSave">Save pin</button></div></div>
 <input type="file" id="file" accept="image/*" hidden>
 <script>
 "use strict";
 const $=s=>document.querySelector(s),cv=$("#c"),cx=cv.getContext("2d"),msg=t=>$("#msg").textContent=t;
-let S={spp:0,off:0,marks:[],trail:[],pos:null,trailOn:true},img=null,V={x:0,y:0,k:1},mode="",A=null,hs=0,hc=0,cs=0,follow=true,head=0,since=0,hasSens=false;
-/* storage */
-const db=new Promise(r=>{try{const q=indexedDB.open("plannav",1);q.onupgradeneeded=()=>q.result.createObjectStore("k");q.onsuccess=()=>r(q.result);q.onerror=()=>r(null)}catch{r(null)}});
-const idb=async(m,k,v)=>{try{const d=await db;if(!d)return;return await new Promise(r=>{const o=d.transaction("k",m==="get"?"readonly":"readwrite").objectStore("k"),q=m==="get"?o.get(k):o.put(v,k);q.onsuccess=()=>r(q.result);q.onerror=()=>r()})}catch{}};
-let tm;const save=()=>{clearTimeout(tm);tm=setTimeout(()=>idb("set","state",S),400)};
+const EL={Wall:"#ef4444",Column:"#f97316",Beam:"#eab308",Slab:"#84cc16",Floor:"#14b8a6",Door:"#06b6d4",Window:"#3b82f6",Stair:"#8b5cf6",MEP:"#ec4899",Other:"#64748b"},
+TY={Defect:"#ef4444",Observation:"#3b82f6",Safety:"#f97316",Measurement:"#8b5cf6",Note:"#22c55e"};
+const IC={up:"M12 16V4m0 0L8 8m4-4 4 4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3",power:"M12 2v10M6.3 6.3a8 8 0 1 0 11.4 0",flag:"M5 21V4m0 0h11l-2 4 2 4H5",
+pin:"M12 21s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12zM12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z",plus:"M12 5v14M5 12h14",follow:"M12 3v4M12 17v4M3 12h4M17 12h4M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z",
+trail:"M4 18c5 0 3-12 8-12s3 8 8 8",walls:"M3 5h18v14H3zM3 12h18M9 5v7M15 12v7",clear:"M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3",
+legend:"M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5",export:"M12 4v12m0 0-4-4m4 4 4-4M4 20h16"};
+document.querySelectorAll("[data-i]").forEach(b=>b.insertAdjacentHTML("afterbegin",`<svg viewBox="0 0 24 24"><path d="${IC[b.dataset.i]}"/></svg>`));
+let S={spp:0,off:0,marks:[],trail:[],pos:null,trailOn:true,walls:true,colorBy:"element"},img=null,V={x:0,y:0,k:1},mode="",A=null,hs=0,hc=0,cs=0,follow=true,head=0,since=0,
+hasSens=false,D=null,Q=[],blk=0,LAST={el:"Wall",ty:"Defect"},st0=-1;
+try{indexedDB.deleteDatabase("plannav")}catch{}
+const mcol=m=>S.colorBy==="type"?TY[m.ty]:EL[m.el];
+function ui(){$("#bFol").classList.toggle("on",follow);$("#bTr").classList.toggle("on",S.trailOn);$("#bWal").classList.toggle("on",S.walls!==false);
+const st=!img?0:!hasSens?1:!S.spp?2:!S.pos?3:4;if(st!==st0){st0=st;document.querySelectorAll("#dots i").forEach((d,i)=>d.classList.toggle("d",i<=st));
+[["#bUp",0],["#bSen",1],["#bCal",2],["#bPin",3]].forEach(([s,i])=>$(s).classList.toggle("now",i===st))}}
 /* image */
-function load(b){const i=new Image();i.onload=()=>{img=i;fit();buildWalls();draw()};i.src=URL.createObjectURL(b)}
+function load(b){const i=new Image();i.onload=()=>{img=i;follow=true;fit();buildWalls();ui();draw()};i.src=URL.createObjectURL(b)}
 function fit(){const k=Math.min(innerWidth/img.width,innerHeight/img.height)*.95;V={k,x:(innerWidth-img.width*k)/2,y:(innerHeight-img.height*k)/2}}
 $("#bUp").onclick=()=>$("#file").click();
-$("#file").onchange=e=>{const f=e.target.files[0];if(!f)return;S={...S,spp:0,off:0,marks:[],trail:[],pos:null};idb("set","img",f);load(f);save();msg("Now tap Start, then Calibrate")};
+$("#file").onchange=e=>{const f=e.target.files[0];e.target.value="";if(!f)return;if(S.marks.length&&!confirm("Replace the plan? Pins on this plan will be cleared."))return;
+S={...S,spp:0,off:0,marks:[],trail:[],pos:null};D=null;Q=[];mode="";A=null;load(f);msg("Loading plan…")};
 /* canvas */
 const size=()=>{const d=devicePixelRatio||1;cv.width=innerWidth*d;cv.height=innerHeight*d;draw()};addEventListener("resize",size);
 const w2s=p=>[p[0]*V.k+V.x,p[1]*V.k+V.y],s2w=p=>[(p[0]-V.x)/V.k,(p[1]-V.y)/V.k];
 let raf=0;const draw=()=>{if(!raf)raf=requestAnimationFrame(render)};
-function dot(p,r,c){const s=w2s(p);cx.fillStyle=c;cx.beginPath();cx.arc(s[0],s[1],r,0,7);cx.fill()}
-function render(){raf=0;const d=devicePixelRatio||1;cx.setTransform(d,0,0,d,0,0);cx.clearRect(0,0,innerWidth,innerHeight);if(!img)return;
+function dot(p,r,c){cx.fillStyle=c;cx.beginPath();cx.arc(p[0],p[1],r,0,7);cx.fill()}
+function pin(p,c){const s=w2s(p),x=s[0],y=s[1];cx.save();cx.shadowColor="rgba(0,0,0,.35)";cx.shadowBlur=6;cx.fillStyle=c;cx.strokeStyle="#fff";cx.lineWidth=2;
+cx.beginPath();cx.moveTo(x,y);cx.bezierCurveTo(x-15,y-16,x-13,y-36,x,y-36);cx.bezierCurveTo(x+13,y-36,x+15,y-16,x,y);cx.fill();cx.shadowBlur=0;cx.stroke();cx.restore();dot([x,y-23],4.5,"#fff")}
+function trail(){const T=S.trail.map(w2s);if(D)T.push(w2s(D));const n=T.length;if(n<2)return;cx.lineCap=cx.lineJoin="round";cx.lineWidth=Math.max(4,Math.min(8,3+V.k*1.5));
+cx.shadowColor="rgba(37,99,235,.5)";cx.shadowBlur=6;const C=8,sm=(a,b,al)=>{cx.strokeStyle=`rgba(37,99,235,${al})`;cx.beginPath();let p=T[a];cx.moveTo(p[0],p[1]);
+for(let i=a+1;i<b;i++){const q=T[i];cx.quadraticCurveTo(p[0],p[1],(p[0]+q[0])/2,(p[1]+q[1])/2);p=q}cx.lineTo(p[0],p[1]);cx.stroke()};
+for(let c=0;c<C;c++){const a=Math.floor(n*c/C),b=Math.min(n,Math.floor(n*(c+1)/C)+1);if(b-a>1)sm(Math.max(0,a-(c?1:0)),b,.18+.4*(c+1)/C)}cx.shadowBlur=0}
+function render(){raf=0;const d=devicePixelRatio||1;cx.setTransform(d,0,0,d,0,0);cx.clearRect(0,0,innerWidth,innerHeight);if(!img)return;let anim=false;
+if(S.pos){if(!D)D=[...S.pos];const tg=Q.length?Q[0]:S.pos,dx=tg[0]-D[0],dy=tg[1]-D[1],ds=Math.hypot(dx,dy);
+if(Q.length&&ds<4/V.k)Q.shift();else if(ds>.3/V.k){const k=Q.length?.4:.22;D[0]+=dx*k;D[1]+=dy*k;anim=true}else if(!Q.length)D=[...S.pos];if(Q.length)anim=true}
+if(follow&&D){V.x=innerWidth/2-D[0]*V.k;V.y=innerHeight*.55-D[1]*V.k}
 cx.drawImage(img,V.x,V.y,img.width*V.k,img.height*V.k);
-if(S.trailOn&&S.trail.length>1){const n=S.trail.length;for(let i=1;i<n;i++){cx.strokeStyle=`rgba(37,99,235,${.05+.25*i/n})`;cx.lineWidth=1.5;cx.beginPath();cx.moveTo(...w2s(S.trail[i-1]));cx.lineTo(...w2s(S.trail[i]));cx.stroke()}}
-S.marks.forEach(m=>dot(m.p,6,"#dc2626"));
-if(A)dot(A,7,"#f59e0b");
-if(S.pos){const s=w2s(S.pos),h=(head+S.off-90)*Math.PI/180,rr=Math.min(80,10+since*.4);
-dot(S.pos,rr,"#2563eb22");cx.fillStyle="#2563eb55";cx.beginPath();cx.moveTo(...s);cx.arc(s[0],s[1],34,h-.5,h+.5);cx.fill();
-cx.strokeStyle="#fff";cx.lineWidth=3;dot(S.pos,8,"#2563eb");cx.beginPath();cx.arc(s[0],s[1],8,0,7);cx.stroke()}}
+if(S.trailOn)trail();
+S.marks.forEach(m=>pin(m.p,mcol(m)));
+if(A){const s=w2s(A);dot(s,11,"#fff");dot(s,8,"#f59e0b")}
+if(D){const s=w2s(D),h=(head+S.off-90)*Math.PI/180,rr=Math.min(70,14+since*.5);dot(s,rr,"rgba(37,99,235,.12)");
+const g=cx.createRadialGradient(s[0],s[1],4,s[0],s[1],52);g.addColorStop(0,"rgba(37,99,235,.6)");g.addColorStop(1,"rgba(37,99,235,0)");cx.fillStyle=g;cx.beginPath();cx.moveTo(s[0],s[1]);cx.arc(s[0],s[1],52,h-.55,h+.55);cx.fill();
+cx.save();cx.shadowColor="rgba(0,0,0,.4)";cx.shadowBlur=8;dot(s,11,"#fff");cx.restore();dot(s,8.5,"#2563eb")}
+if(anim)draw()}
+function setPos(p,snap){S.pos=p;if(snap){D=[...p];Q=[]}}
 /* gestures */
 const P=new Map();let g=null,down=null,lastTap=0;
 cv.addEventListener("pointerdown",e=>{cv.setPointerCapture(e.pointerId);P.set(e.pointerId,[e.clientX,e.clientY]);down={t:Date.now(),x:e.clientX,y:e.clientY,mv:0};g=pg()});
 function pg(){const a=[...P.values()];if(a.length<2)return{c:a[0],d:0,V:{...V}};return{c:[(a[0][0]+a[1][0])/2,(a[0][1]+a[1][1])/2],d:Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]),V:{...V}}}
 cv.addEventListener("pointermove",e=>{if(!P.has(e.pointerId))return;P.set(e.pointerId,[e.clientX,e.clientY]);if(down)down.mv=Math.max(down.mv,Math.hypot(e.clientX-down.x,e.clientY-down.y));
-const n=pg();follow=false;if(P.size>=2&&g.d){const k=Math.max(.05,Math.min(12,g.V.k*n.d/g.d));V.k=k;V.x=n.c[0]-(g.c[0]-g.V.x)*k/g.V.k;V.y=n.c[1]-(g.c[1]-g.V.y)*k/g.V.k}else if(g.c){V.x=g.V.x+n.c[0]-g.c[0];V.y=g.V.y+n.c[1]-g.c[1]}draw()});
+const n=pg();if(down&&down.mv>8&&follow){follow=false;ui()}if(P.size>=2&&g.d){const k=Math.max(.05,Math.min(12,g.V.k*n.d/g.d));V.k=k;V.x=n.c[0]-(g.c[0]-g.V.x)*k/g.V.k;V.y=n.c[1]-(g.c[1]-g.V.y)*k/g.V.k}else if(g.c){V.x=g.V.x+n.c[0]-g.c[0];V.y=g.V.y+n.c[1]-g.c[1]}draw()});
 cv.addEventListener("pointerup",e=>{if(!P.has(e.pointerId))return;const was=P.size===1&&down&&down.mv<8&&Date.now()-down.t<300;P.delete(e.pointerId);g=pg();if(was)tap([e.clientX,e.clientY])});
 cv.addEventListener("pointercancel",e=>P.delete(e.pointerId));
-cv.addEventListener("wheel",e=>{e.preventDefault();zoomAt([e.clientX,e.clientY],Math.exp(-e.deltaY*.0015))},{passive:false});
+cv.addEventListener("wheel",e=>{e.preventDefault();follow=false;ui();zoomAt([e.clientX,e.clientY],Math.exp(-e.deltaY*.0015))},{passive:false});
 function zoomAt(c,f){const k=Math.max(.05,Math.min(12,V.k*f));V.x=c[0]-(c[0]-V.x)*k/V.k;V.y=c[1]-(c[1]-V.y)*k/V.k;V.k=k;draw()}
-function tap(sp){if(!img)return;const now=Date.now();if(now-lastTap<300&&!mode){zoomAt(sp,2);lastTap=0;return}lastTap=now;const w=s2w(sp);
-if(mode==="pinA"){A=w;S.pos=w;S.trail=[w];cs=0;hs=hc=0;mode="walk";msg("Walk to another spot (10+ steps), then tap that exact spot");draw();return}
+function tap(sp){if(!img)return;const now=Date.now();if(now-lastTap<300&&!mode){follow=false;ui();zoomAt(sp,2);lastTap=0;return}lastTap=now;const w=s2w(sp);
+if(mode==="pinA"){A=w;setPos(w,true);S.trail=[w];cs=0;hs=hc=0;mode="walk";msg("Walk 10+ steps to another spot, then tap that exact spot");draw();return}
 if(mode==="walk")return finishCal(w);
-if(mode==="pin"){S.pos=w;since=0;S.trail.push(w);mode="";save();msg(S.spp?"Pinned. Walk!":"Pinned. Now Calibrate");draw();return}
-const i=S.marks.findIndex(m=>{const s=w2s(m.p);return Math.hypot(s[0]-sp[0],s[1]-sp[1])<22});
-if(i>=0){const m=S.marks[i];if(confirm((m.note?m.note+"\n":"")+m.t+"\nDelete this mark?")){S.marks.splice(i,1);save();draw()}}}
+if(mode==="pin"){setPos(w,true);since=0;blk=0;S.trail.push(w);mode="";msg(S.spp?"Pinned. Start walking":"Pinned. Now Calibrate");ui();draw();return}
+for(let i=S.marks.length-1;i>=0;i--){const s=w2s(S.marks[i].p);if(Math.hypot(s[0]-sp[0],s[1]-18-sp[1])<26)return showSheet(S.marks[i])}}
 function finishCal(w){const d=Math.hypot(w[0]-A[0],w[1]-A[1]);if(cs<8)return msg("Only "+cs+" steps counted. Walk further, then tap your spot");
-S.spp=d/cs;const mh=Math.atan2(hs,hc)*180/Math.PI,ma=Math.atan2(w[0]-A[0],-(w[1]-A[1]))*180/Math.PI;S.off=ma-mh;S.pos=w;S.trail.push(w);since=0;A=null;mode="";save();msg("Calibrated ("+cs+" steps). Walk!");draw()}
+S.spp=d/cs;const mh=Math.atan2(hs,hc)*180/Math.PI,ma=Math.atan2(w[0]-A[0],-(w[1]-A[1]))*180/Math.PI;S.off=ma-mh;setPos(w,true);S.trail.push(w);since=0;blk=0;A=null;mode="";msg("Calibrated ("+cs+" steps). Walk!");ui();draw()}
 /* buttons */
 $("#bCal").onclick=()=>{if(!img)return msg("Upload a plan first");if(!hasSens)return msg("Tap Start first");mode="pinA";A=null;msg("Tap your exact position on the plan")};
 $("#bPin").onclick=()=>{if(!img)return msg("Upload a plan first");mode="pin";msg("Tap where you are")};
-$("#bFol").onclick=()=>{follow=true;if(S.pos)centerOn();draw()};
-$("#bTr").onclick=()=>{S.trailOn=!S.trailOn;save();draw()};
-$("#bWal").onclick=()=>{S.walls=S.walls===false;$("#bWal").textContent="Walls: "+(S.walls===false?"off":"on");save();msg(S.walls===false?"Walls ignored":WM?"Walls block your steps":"No usable walls found in this plan")};
-$("#bClr").onclick=()=>{S.trail=S.pos?[S.pos]:[];save();draw()};
-function centerOn(){const s=w2s(S.pos);V.x+=innerWidth/2-s[0];V.y+=innerHeight/2-s[1]}
-$("#mark").onclick=()=>{if(!S.pos)return msg("Pin your position first");const note=prompt("Note (optional)")||"";S.marks.push({p:[...S.pos],t:new Date().toISOString(),note});save();draw();msg("Marked ("+S.marks.length+")")};
+$("#bFol").onclick=()=>{follow=!follow;ui();draw()};
+$("#bTr").onclick=()=>{S.trailOn=!S.trailOn;ui();draw()};
+$("#bWal").onclick=()=>{S.walls=S.walls===false;ui();msg(S.walls===false?"Walls ignored":WM?"Walls block your steps":"No usable walls in this plan")};
+$("#bClr").onclick=()=>{S.trail=S.pos?[S.pos]:[];draw()};
+$("#bLeg").onclick=()=>{const l=$("#legend");l.hidden=!l.hidden;$("#bLeg").classList.toggle("on",!l.hidden);legend()};
+function legend(){const o=S.colorBy==="type"?TY:EL;$("#legend").innerHTML="<b>Colour by "+S.colorBy+"</b>"+Object.entries(o).map(([k,c])=>`<div><i style="background:${c}"></i>${k}</div>`).join("")}
 $("#bExp").onclick=()=>{const dl=(n,t,m)=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([t],{type:m}));a.download=n;a.click()};
-dl("marks.json",JSON.stringify(S.marks,null,1),"application/json");
-dl("marks.csv","time,x_px,y_px,note\n"+S.marks.map(m=>[m.t,m.p[0].toFixed(1),m.p[1].toFixed(1),'"'+m.note.replace(/"/g,'""')+'"'].join(",")).join("\n"),"text/csv")};
+dl("pins.json",JSON.stringify(S.marks.map(m=>({...m,colour:mcol(m)})),null,1),"application/json");
+dl("pins.csv","time,element,type,colour,x_px,y_px,note\n"+S.marks.map(m=>[m.t,m.el,m.ty,mcol(m),m.p[0].toFixed(1),m.p[1].toFixed(1),'"'+m.note.replace(/"/g,'""')+'"'].join(",")).join("\n"),"text/csv")};
+/* pin sheet */
+let ed=null,dr={};
+function chips(){const mk=(id,o,k)=>$(id).innerHTML=Object.entries(o).map(([n,c])=>`<button class="chip${dr[k]===n?" on":""}" data-k="${k}" data-v="${n}" style="--c:${c}"><i></i>${n}</button>`).join("");
+mk("#chEl",EL,"el");mk("#chTy",TY,"ty");document.querySelectorAll("[data-cb]").forEach(b=>b.classList.toggle("on",b.dataset.cb===S.colorBy))}
+function showSheet(m){ed=m;dr=m?{el:m.el,ty:m.ty}:{...LAST};$("#note").value=m?m.note:"";$("#shT").textContent=m?"Edit pin":"New pin";$("#shDel").hidden=!m;chips();$("#sh").hidden=$("#scrim").hidden=false}
+const closeSheet=()=>$("#sh").hidden=$("#scrim").hidden=true;
+$("#mark").onclick=()=>{if(!S.pos)return msg("Pin your position first");showSheet(null)};
+$("#scrim").onclick=$("#shCancel").onclick=closeSheet;
+$("#sh").onclick=e=>{const b=e.target.closest("[data-k],[data-cb]");if(!b)return;if(b.dataset.k)dr[b.dataset.k]=b.dataset.v;else{S.colorBy=b.dataset.cb;legend();draw()}chips()};
+$("#shSave").onclick=()=>{const note=$("#note").value.trim();if(ed){ed.el=dr.el;ed.ty=dr.ty;ed.note=note}else S.marks.push({p:[...S.pos],t:new Date().toISOString(),el:dr.el,ty:dr.ty,note});
+LAST={el:dr.el,ty:dr.ty};closeSheet();draw();msg("Pins: "+S.marks.length)};
+$("#shDel").onclick=()=>{S.marks=S.marks.filter(m=>m!==ed);closeSheet();draw()};
 /* sensors */
 let lp=9.8,base=9.8,last=0,prev=0,pprev=0,wl=null;
 $("#bSen").onclick=async()=>{try{const rs=await Promise.all([DeviceMotionEvent,DeviceOrientationEvent].map(C=>C&&C.requestPermission?C.requestPermission():"granted"));if(rs.includes("denied"))throw 0;
 if(!("ondevicemotion" in window))throw 0;addEventListener("devicemotion",onMotion);addEventListener("deviceorientationabsolute",onOri);addEventListener("deviceorientation",onOri);hasSens=true;
-try{wl=await navigator.wakeLock.request("screen")}catch{}msg("Sensors on. Now Calibrate")}catch{msg("Sensors unavailable or denied (needs a phone + HTTPS)")}};
+try{wl=await navigator.wakeLock.request("screen")}catch{}msg("Sensors on. Now Calibrate");ui()}catch{msg("Sensors unavailable or denied (needs a phone + HTTPS)")}};
 function onOri(e){let h=e.webkitCompassHeading;if(h==null){if(e.type==="deviceorientation"&&e.absolute===false&&"ondeviceorientationabsolute" in window)return;if(e.alpha==null)return;h=360-e.alpha}
 head=(head+.15*(((h-head+540)%360)-180)+360)%360;draw()}
 function onMotion(e){const a=e.accelerationIncludingGravity;if(!a||a.x==null)return;const m=Math.hypot(a.x,a.y,a.z);lp+=.3*(m-lp);base+=.02*(m-base);const dev=lp-base,t=e.timeStamp||Date.now();
 if(prev>pprev&&prev>=dev&&prev>.5&&t-last>280){last=t;step()}pprev=prev;prev=dev}
 function step(){if(mode==="walk"){cs++;hs+=Math.sin(head*Math.PI/180);hc+=Math.cos(head*Math.PI/180);msg("Steps: "+cs+" — tap your spot when you stop");return}
-if(!S.spp||!S.pos||mode)return;const h=(head+S.off)*Math.PI/180,n=[S.pos[0]+Math.sin(h)*S.spp,S.pos[1]-Math.cos(h)*S.spp];
-if(n[0]<0||n[1]<0||n[0]>img.width||n[1]>img.height)return;if(blocked(S.pos,n))return msg("Wall in the way — walk around or re-pin");S.pos=n;since++;S.trail.push(n);if(S.trail.length>3000)S.trail.shift();if(follow)centerOn();save();draw();if(since>60)msg("Drifting — tap Pin me to re-pin")}
-/* walls: dark pixels of the plan block steps */
+if(!S.spp||!S.pos||mode)return;const hr=(head+S.off)*Math.PI/180,n=[S.pos[0]+Math.sin(hr)*S.spp,S.pos[1]-Math.cos(hr)*S.spp];
+if(n[0]<0||n[1]<0||n[0]>img.width||n[1]>img.height)return;
+if(blocked(S.pos,n)){blk++;if(blk<2)return msg("Wall ahead");const r=routeThrough(S.pos,hr);
+if(r){S.pos=r[r.length-1];Q=r.slice();S.trail.push(...r);blk=0;msg("Wall in the way — went through the nearest door");draw()}else msg("Wall ahead, no door within 5 m. Re-pin if you're lost");return}
+blk=0;S.pos=n;since++;S.trail.push(n);if(S.trail.length>1500)S.trail.shift();draw();if(since>60)msg("Drifting — tap Pin me to re-pin")}
+/*WALLS*/
 let WM=null,WF=1,WW=0,WH=0;
 function morph(s,w,h,k,dil){const r=k>>1,t=new Uint8Array(w*h),o=new Uint8Array(w*h),on=dil?1:0;
 for(let y=0;y<h;y++)for(let x=0;x<w;x++){let v=1-on;for(let d=-r;d<=r;d++){const xx=x+d;if(xx<0||xx>=w)continue;if(s[y*w+xx]===on){v=on;break}}t[y*w+x]=v}
@@ -109,10 +178,25 @@ for(let s0=0;s0<w*h;s0++){if(!O[s0]||vis[s0])continue;let sp=0,n=0;st[sp++]=s0;v
 while(sp){const q=st[--sp];cm[n++]=q;const qx=q%w,qy=(q/w)|0;
 for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const xx=qx+dx,yy=qy+dy;if((!dx&&!dy)||xx<0||yy<0||xx>=w||yy>=h)continue;const nq=yy*w+xx;if(O[nq]&&!vis[nq]){vis[nq]=1;st[sp++]=nq}}}
 if(n>=minA)for(let i=0;i<n;i++)keep[cm[i]]=1}
-WM=keep;WF=f;WW=w;WH=h;msg("Walls ready. Tap Start, then Calibrate")}catch(e){msg("Could not read walls")}},40)}
+WM=keep;WF=f;WW=w;WH=h;msg("Plan ready. Tap Start, then Calibrate")}catch(e){msg("Could not read walls")}},40)}
 const hit=(x,y)=>{x|=0;y|=0;return x<0||y<0||x>=WW||y>=WH||WM[y*WW+x]===1};
 function blocked(a,b){if(!WM||S.walls===false)return false;const x0=a[0]*WF,y0=a[1]*WF,x1=b[0]*WF,y1=b[1]*WF,n=Math.ceil(Math.hypot(x1-x0,y1-y0)*2)+1;let open=!hit(x0,y0);
 for(let i=1;i<=n;i++){const t=i/n;if(hit(x0+(x1-x0)*t,y0+(y1-y0)*t)){if(open)return true}else open=true}return false}
-/* boot */
-(async()=>{size();const s=await idb("get","state");if(s)S={...S,...s};$("#bWal").textContent="Walls: "+(S.walls===false?"off":"on");const b=await idb("get","img");if(b)load(b);if("serviceWorker"in navigator){const had=!!navigator.serviceWorker.controller;navigator.serviceWorker.addEventListener("controllerchange",()=>{if(had)location.reload()});navigator.serviceWorker.register("/sw.js").then(r=>r.update()).catch(()=>{})}})();
+/* when walking into a wall: find a path through the nearest door (max 5 m, 0.7 m per step assumed) to the far side */
+function routeThrough(a,hr){if(!WM||S.walls===false||!S.spp)return null;
+const pm=S.spp/.7*WF,cell=Math.max(2,Math.round(.25*pm)),ax=a[0]*WF,ay=a[1]*WF,dx=Math.sin(hr),dy=-Math.cos(hr);let crossed=false,tx=0,ty=0,ok=false;
+for(let t=1;t<=5*S.spp*WF;t++){const x=ax+dx*t,y=ay+dy*t;if(hit(x,y))crossed=true;else if(crossed){tx=x+dx*cell*2;ty=y+dy*cell*2;ok=true;break}}
+if(!ok||hit(tx,ty))return null;
+const key=(i,j)=>i*100000+j,bm=new Map(),cb=(i,j)=>{const k=key(i,j);let v=bm.get(k);if(v===undefined){v=false;for(let y=j*cell;y<(j+1)*cell&&!v;y++)for(let x=i*cell;x<(i+1)*cell;x++)if(hit(x,y)){v=true;break}bm.set(k,v)}return v};
+const si=Math.floor(ax/cell),sj=Math.floor(ay/cell),ti=Math.floor(tx/cell),tj=Math.floor(ty/cell),maxD=Math.ceil(5/.25*1.3);
+if((si===ti&&sj===tj)||cb(ti,tj))return null;
+const par=new Map([[key(si,sj),null]]),dep=new Map([[key(si,sj),0]]),q=[[si,sj]];let found=false;
+for(let h=0;h<q.length&&!found;h++){const[i,j]=q[h],d=dep.get(key(i,j));if(d>=maxD)continue;
+for(const[di,dj]of[[1,0],[-1,0],[0,1],[0,-1]]){const ni=i+di,nj=j+dj,k=key(ni,nj);if(par.has(k)||cb(ni,nj))continue;par.set(k,[i,j]);dep.set(k,d+1);if(ni===ti&&nj===tj){found=true;break}q.push([ni,nj])}}
+if(!found)return null;const path=[[tx/WF,ty/WF]];let c=par.get(key(ti,tj));
+while(c&&!(c[0]===si&&c[1]===sj)){path.push([(c[0]+.5)*cell/WF,(c[1]+.5)*cell/WF]);c=par.get(key(c[0],c[1]))}
+return path.reverse()}
+/*ENDWALLS*/
+/* boot: always start blank, nothing is restored */
+size();ui();if("serviceWorker"in navigator){const had=!!navigator.serviceWorker.controller;navigator.serviceWorker.addEventListener("controllerchange",()=>{if(had)location.reload()});navigator.serviceWorker.register("/sw.js").then(r=>r.update()).catch(()=>{})}
 </script></body></html>
