@@ -14,11 +14,11 @@ button.g{background:#64748b}#mark{background:#16a34a;font-weight:700}
 #msg{font-size:13px;opacity:.85}
 </style></head><body>
 <canvas id="c"></canvas>
-<div class="bar" id="top"><b>Plan Navigator</b><div id="msg">Upload › Start sensors › Calibrate › Pin › Walk</div></div>
+<div class="bar" id="top"><b>Plan Navigator v3</b><div id="msg">Upload › Start sensors › Calibrate › Pin › Walk</div></div>
 <div class="bar" id="bot">
 <button id="bUp">Upload</button><button id="bSen">Start</button><button id="bCal" class="g">Calibrate</button>
 <button id="bPin" class="g">Pin me</button><button id="mark">Mark</button><button id="bFol" class="g">Follow</button>
-<button id="bTr" class="g">Trail</button><button id="bClr" class="g">Clear</button><button id="bExp" class="g">Export</button>
+<button id="bTr" class="g">Trail</button><button id="bWal" class="g">Walls</button><button id="bClr" class="g">Clear</button><button id="bExp" class="g">Export</button>
 </div>
 <input type="file" id="file" accept="image/*" hidden>
 <script>
@@ -30,7 +30,7 @@ const db=new Promise(r=>{try{const q=indexedDB.open("plannav",1);q.onupgradeneed
 const idb=async(m,k,v)=>{try{const d=await db;if(!d)return;return await new Promise(r=>{const o=d.transaction("k",m==="get"?"readonly":"readwrite").objectStore("k"),q=m==="get"?o.get(k):o.put(v,k);q.onsuccess=()=>r(q.result);q.onerror=()=>r()})}catch{}};
 let tm;const save=()=>{clearTimeout(tm);tm=setTimeout(()=>idb("set","state",S),400)};
 /* image */
-function load(b){const i=new Image();i.onload=()=>{img=i;fit();draw()};i.src=URL.createObjectURL(b)}
+function load(b){const i=new Image();i.onload=()=>{img=i;fit();buildWalls();draw()};i.src=URL.createObjectURL(b)}
 function fit(){const k=Math.min(innerWidth/img.width,innerHeight/img.height)*.95;V={k,x:(innerWidth-img.width*k)/2,y:(innerHeight-img.height*k)/2}}
 $("#bUp").onclick=()=>$("#file").click();
 $("#file").onchange=e=>{const f=e.target.files[0];if(!f)return;S={...S,spp:0,off:0,marks:[],trail:[],pos:null};idb("set","img",f);load(f);save();msg("Now tap Start, then Calibrate")};
@@ -70,6 +70,7 @@ $("#bCal").onclick=()=>{if(!img)return msg("Upload a plan first");if(!hasSens)re
 $("#bPin").onclick=()=>{if(!img)return msg("Upload a plan first");mode="pin";msg("Tap where you are")};
 $("#bFol").onclick=()=>{follow=true;if(S.pos)centerOn();draw()};
 $("#bTr").onclick=()=>{S.trailOn=!S.trailOn;save();draw()};
+$("#bWal").onclick=()=>{S.walls=S.walls===false;$("#bWal").textContent="Walls: "+(S.walls===false?"off":"on");save();msg(S.walls===false?"Walls ignored":WM?"Walls block your steps":"No usable walls found in this plan")};
 $("#bClr").onclick=()=>{S.trail=S.pos?[S.pos]:[];save();draw()};
 function centerOn(){const s=w2s(S.pos);V.x+=innerWidth/2-s[0];V.y+=innerHeight/2-s[1]}
 $("#mark").onclick=()=>{if(!S.pos)return msg("Pin your position first");const note=prompt("Note (optional)")||"";S.marks.push({p:[...S.pos],t:new Date().toISOString(),note});save();draw();msg("Marked ("+S.marks.length+")")};
@@ -87,7 +88,31 @@ function onMotion(e){const a=e.accelerationIncludingGravity;if(!a||a.x==null)ret
 if(prev>pprev&&prev>=dev&&prev>.5&&t-last>280){last=t;step()}pprev=prev;prev=dev}
 function step(){if(mode==="walk"){cs++;hs+=Math.sin(head*Math.PI/180);hc+=Math.cos(head*Math.PI/180);msg("Steps: "+cs+" — tap your spot when you stop");return}
 if(!S.spp||!S.pos||mode)return;const h=(head+S.off)*Math.PI/180,n=[S.pos[0]+Math.sin(h)*S.spp,S.pos[1]-Math.cos(h)*S.spp];
-if(n[0]<0||n[1]<0||n[0]>img.width||n[1]>img.height)return;S.pos=n;since++;S.trail.push(n);if(S.trail.length>3000)S.trail.shift();if(follow)centerOn();save();draw();if(since>60)msg("Drifting — tap Pin me to re-pin")}
+if(n[0]<0||n[1]<0||n[0]>img.width||n[1]>img.height)return;if(blocked(S.pos,n))return msg("Wall in the way — walk around or re-pin");S.pos=n;since++;S.trail.push(n);if(S.trail.length>3000)S.trail.shift();if(follow)centerOn();save();draw();if(since>60)msg("Drifting — tap Pin me to re-pin")}
+/* walls: dark pixels of the plan block steps */
+let WM=null,WF=1,WW=0,WH=0;
+function morph(s,w,h,k,dil){const r=k>>1,t=new Uint8Array(w*h),o=new Uint8Array(w*h),on=dil?1:0;
+for(let y=0;y<h;y++)for(let x=0;x<w;x++){let v=1-on;for(let d=-r;d<=r;d++){const xx=x+d;if(xx<0||xx>=w)continue;if(s[y*w+xx]===on){v=on;break}}t[y*w+x]=v}
+for(let y=0;y<h;y++)for(let x=0;x<w;x++){let v=1-on;for(let d=-r;d<=r;d++){const yy=y+d;if(yy<0||yy>=h)continue;if(t[yy*w+x]===on){v=on;break}}o[y*w+x]=v}
+return o}
+function buildWalls(){WM=null;msg("Reading walls…");setTimeout(()=>{try{
+const L=Math.max(img.width,img.height),f=Math.min(1,2600/L),w=Math.round(img.width*f),h=Math.round(img.height*f),sc=Math.max(w,h)/2576,
+kc=Math.max(3,Math.round(7*sc))|1,ko=Math.max(3,Math.round(3*sc))|1,minA=Math.max(60,Math.round(800*sc*sc)),
+c=document.createElement("canvas");c.width=w;c.height=h;const x=c.getContext("2d",{willReadFrequently:true});x.drawImage(img,0,0,w,h);
+const d=x.getImageData(0,0,w,h).data,M=new Uint8Array(w*h);let sum=0;
+for(let i=0;i<w*h;i++){const r=d[i*4],g=d[i*4+1],b=d[i*4+2],l=(r+g+b)/3;sum+=l;
+M[i]=(l<120&&Math.abs(r-g)<50&&Math.abs(g-b)<50)||(b>150&&r<90&&g<90)||(r-g>60&&b-g>60)?1:0}
+if(sum/(w*h)<150){msg("Dark plan: wall blocking unavailable");return}
+const O=morph(morph(morph(morph(M,w,h,kc,true),w,h,kc,false),w,h,ko,false),w,h,ko,true),
+vis=new Uint8Array(w*h),keep=new Uint8Array(w*h),st=new Int32Array(w*h),cm=new Int32Array(w*h);
+for(let s0=0;s0<w*h;s0++){if(!O[s0]||vis[s0])continue;let sp=0,n=0;st[sp++]=s0;vis[s0]=1;
+while(sp){const q=st[--sp];cm[n++]=q;const qx=q%w,qy=(q/w)|0;
+for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const xx=qx+dx,yy=qy+dy;if((!dx&&!dy)||xx<0||yy<0||xx>=w||yy>=h)continue;const nq=yy*w+xx;if(O[nq]&&!vis[nq]){vis[nq]=1;st[sp++]=nq}}}
+if(n>=minA)for(let i=0;i<n;i++)keep[cm[i]]=1}
+WM=keep;WF=f;WW=w;WH=h;msg("Walls ready. Tap Start, then Calibrate")}catch(e){msg("Could not read walls")}},40)}
+const hit=(x,y)=>{x|=0;y|=0;return x<0||y<0||x>=WW||y>=WH||WM[y*WW+x]===1};
+function blocked(a,b){if(!WM||S.walls===false)return false;const x0=a[0]*WF,y0=a[1]*WF,x1=b[0]*WF,y1=b[1]*WF,n=Math.ceil(Math.hypot(x1-x0,y1-y0)*2)+1;let open=!hit(x0,y0);
+for(let i=1;i<=n;i++){const t=i/n;if(hit(x0+(x1-x0)*t,y0+(y1-y0)*t)){if(open)return true}else open=true}return false}
 /* boot */
-(async()=>{size();const s=await idb("get","state");if(s)S={...S,...s};const b=await idb("get","img");if(b)load(b);if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>{})})();
+(async()=>{size();const s=await idb("get","state");if(s)S={...S,...s};$("#bWal").textContent="Walls: "+(S.walls===false?"off":"on");const b=await idb("get","img");if(b)load(b);if("serviceWorker"in navigator){const had=!!navigator.serviceWorker.controller;navigator.serviceWorker.addEventListener("controllerchange",()=>{if(had)location.reload()});navigator.serviceWorker.register("/sw.js").then(r=>r.update()).catch(()=>{})}})();
 </script></body></html>
